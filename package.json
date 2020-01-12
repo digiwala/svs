@@ -1,0 +1,20 @@
+{
+  "name": "svs",
+  "version": "1.0.0",
+  "description": "svs sdk for nodejs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "svs",
+    "svs",
+    "api",
+    "smsapi",
+    "voice",
+    "api"
+  ],
+  "author": "aj",
+  "license": "ISC",
+  "dependencies": {}
+}
