@@ -1,215 +1,172 @@
-/**
- *
- * @param authKey
- * @param senderId
- * @param route : Value can be 1 for Promotional Router or 4 for Transactional Route
- */
-module.exports = function (authKey, senderId) {
+const axios = require('axios').default
+let baseUrl = `http://digicools.online`;
+const { validateMobileNos,validateMessage,isUnicodeString,isContainsNonLatinCodepoints } = require('./helper')
 
-    if (authKey == null || authKey == "") {
-        throw new Error("Authorization Key not provided.");
+let SVSAPI = axios.create({
+    baseURL:baseUrl,
+    Headers:{
+        "Cache-Control": "no-cache",
     }
+})
 
-    if (senderId == null || senderId == "") {
-        throw new Error("Sender Id is not provided.");
+class SVS {
+    constructor(apiKey){
+        this.apiKey = apiKey || null
     }
-
-    /* if (route == null || route == "") {
-        throw new Error("MSG91 router Id is not provided.");
-    } */
-
-    this.smsCount = function (message, callback) {
-
-        callback = modifyCallbackIfNull(callback);
-
-        message = validateMessage(message);
-
-        var isUnicode = isUnicodeString(message);
-        
-        // for fixing this issue - http://help.msg91.com/article/59-problem-with-plus-sign-api-send-sms
-        
-        var specialChars = ['+', '&', '#', '%', '@', '/', ';', '=', '?', '^', '|']; // EncodeUriComponent Doesn't work on ! * ( ) . _ - ' ~ `
-        
-        if (specialChars.some(function (v) {
-                return message.indexOf(v) >= 0;
-            })) {
-            // if there is at least one special character present in message string
-            message = encodeURIComponent(encodeURIComponent(message));
+    async getSMSCounts ({apiKey, message, unicode}){
+        try {
+            let result =  await SVSAPI.get(
+                `${baseUrl}/api_v2/message/count`,
+                {
+                    params:{
+                        api_key:apiKey || this.apiKey,
+                        message:message,
+                        unicode:unicode || isUnicodeString(message) || 0
+                    }
+                }
+            )
+            console.log(result.data.data)
+            return result.data.data
+        } catch (error) {
+            return error       
         }
-
-        var postData = "&message=" + message;
-        //sender_id=BLKSMS&mobile_no=9876543210%2C987456321&message=YOUR_MESSAGE'
-         //+ "&country_coded=" + countryCode
-        if(isUnicode){
-            postData += "&unicode=1";
-        }
-        var options = {
-            hostname: 'digicools.online',
-            port: 80,
-            path: '/api_v2/message/count',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Content-Length': postData.length,
-                "authorization": `Bearer ${authKey}`,
-                "Cache-Control": "no-cache",
-            }
-        };
-
-        makeHttpRequest(options, postData, function(err, data){
-            callback(err, data);
-        });
-    };
-    this.sendSMS = function (mobileNos, message, callback) {
-
-        callback = modifyCallbackIfNull(callback);
-
-        mobileNos = validateMobileNos(mobileNos);
-
-        message = validateMessage(message);
-
-        var isUnicode = isUnicodeString(message);
-        
-        // for fixing this issue - http://help.msg91.com/article/59-problem-with-plus-sign-api-send-sms
-        
-        var specialChars = ['+', '&', '#', '%', '@', '/', ';', '=', '?', '^', '|']; // EncodeUriComponent Doesn't work on ! * ( ) . _ - ' ~ `
-        
-        if (specialChars.some(function (v) {
-                return message.indexOf(v) >= 0;
-            })) {
-            // if there is at least one special character present in message string
-            message = encodeURIComponent(encodeURIComponent(message));
-        }
-
-        var postData = "&sender_id=" + senderId + "&mobile_no=" + mobileNos + "&message=" + message;
-        //sender_id=BLKSMS&mobile_no=9876543210%2C987456321&message=YOUR_MESSAGE'
-         //+ "&country_coded=" + countryCode
-        if(isUnicode){
-            postData += "&unicode=1";
-        }
-
-        var options = {
-            hostname: 'digicools.online',
-            port: 80,
-            path: '/api_v2/message/send',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Content-Length': postData.length,
-                "authorization": `Bearer ${authKey}`,
-                "Cache-Control": "no-cache",
-            }
-        };
-
-        makeHttpRequest(options, postData, function(err, data){
-            callback(err, data);
-        });
-    };
-
-    this.getBalance = function(callback) {
-
-        if(arguments.length == 1) {
-            callback = customRoute;
-            customRoute = null;
-        }
-
-        callback = modifyCallbackIfNull(callback);
-
-        //var currentRoute = customRoute || route;
-
-        var options = {
-            hostname: 'digicools.online',
-            port: 80,
-            path: '/api_v2/user/balance?api_key=' + authKey,
-            method: 'GET'
-        };
-
-        makeHttpRequest(options, null, function(err, data){
-            callback(err, data);
-        });
     }
-    this.getSMSCount = function(message) {
-
-        if(arguments.length == 1) {
-            callback = customRoute;
-            customRoute = null;
+    async checkBalance(apiKey){
+        try {
+            let result =  await SVSAPI.get(
+                `${baseUrl}/api_v2/user/balance`,
+                {
+                    params:{
+                        api_key: apiKey || this.apiKey
+                    }
+                }
+            )
+            //console.log(result.data.data)
+            return result.data.data
+        } catch (error) {
+            return error       
         }
-
-        callback = modifyCallbackIfNull(callback);
-
-        var isUnicode = isUnicodeString(message);
-
-        var options = {
-            hostname: 'digicools.online',
-            port: 80,
-            path: '/api_v2/message/count?api_key='+authKey+"&message="+message+"&unicode="+isUnicode,
-            method: 'GET'
-        };
-
-        makeHttpRequest(options, null, function(err, data){
-            callback(err, data);
-        });
     }
-
-    return this;
-
-};
-
-function validateMobileNos(mobileNos){
-
-    if (mobileNos == null || mobileNos == "") {
-        throw new Error("MSG91 : Mobile No is not provided.");
+    async filterMobileNumbers({apiKey,mobileNumbers}){
+        let validatedMobileNos =  validateMobileNos(mobileNumbers);
+        try {
+            let result =  await SVSAPI.get(
+                `/api_v2/contact/filter_number`,
+                {
+                    params:{
+                        api_key:apiKey || this.apiKey,
+                        mobile_number:validatedMobileNos
+                    }
+                }
+            )
+            //console.log(result.data.data)
+            return result.data.data
+        } catch (error) {
+            return error       
+        }
     }
-
-    if(mobileNos instanceof Array){
-        mobileNos = mobileNos.join(",");
+    async userSignUp({apiKey,name,username,mobile,email}){
+        try {
+            let result =  await SVSAPI.post(
+                `${baseUrl}/api_v2/user/signup`,
+                {
+                    name:name || '',
+                    username:username || '',
+                    mobile_no:mobile || '7000547479',
+                    email:email ||'ajayst27@gmail.com'
+                },
+                {
+                    headers:{
+                        authorization: `Bearer ${apiKey || this.apiKey}`,
+                    },
+                },
+            )
+            //console.log(result.data.data)
+            return result.data
+        } catch (error) {
+            //console.log('error' + error)
+            return error       
+        }
     }
-
-    return mobileNos
+    async manageClientCredit({apiKey,username,creditType,credit,serviceType,pricePerCredit}){
+        try {
+            let result =  await SVSAPI.post(
+                `${baseUrl}/api_v2/user/credit`,
+                {
+                    username:username || '',
+                    credit_type:creditType || 'sms', // 'sms' || 'voice'
+                    credit:credit || '5',
+                    service_type:serviceType || 'open_dnd', //Transactional,Promotional,open_dnd,voice_call
+                    price_per_credit:pricePerCredit || '.20',
+                },
+                {
+                    headers:{
+                        authorization: `Bearer ${apiKey || this.apiKey}`,
+                    },
+                },
+            )
+            //console.log(result.data.data)
+            return result.data
+        } catch (error) {
+            //console.log('error' + error)
+            return error       
+        }
+    }
+    async sendSMS({apiKey,senderId,message,mobileNumbers,scheduleDateTime,countryCode}){
+        let isUnicode = isUnicodeString(message);
+        let validatedMobileNos = validateMobileNos(mobileNumbers);
+        let filteredMobileNos = await this.filterMobileNumbers({mobileNumbers:validatedMobileNos})
+        var data = {
+            sender_id: senderId,
+            message: message,
+            mobile_no: filteredMobileNos,
+        }
+        scheduleDateTime ? data.schedule_date_time = scheduleDateTime : null
+        countryCode ? data.country_coded = countryCode : null
+        //isUnicodeString ? data.unicode = true : null
+        try {
+            let result =  await SVSAPI.post(
+                `${baseUrl}/api_v2/message/send`,
+                data,
+                {
+                    headers:{
+                        authorization: `Bearer ${apiKey || this.apiKey}`,
+                    },
+                },
+            )
+            console.log(result.data.data)
+            return result.data
+        } catch (error) {
+            console.log('error' + error)
+            return error       
+        }
+    }
+    async sendUnicodeSMS({username,password,senderId,message,mobileNumbers,flash,scheduleDateTime,countryCode}){
+        var data = {
+            username:username,
+            password:password,
+            sender:senderId,
+            message:message,
+            numbers:mobileNumbers,
+            flash:flash || false
+        }
+        scheduleDateTime ? data.posting_time = scheduleDateTime : null
+        countryCode ? data.country_coded = countryCode : null
+        let isUnicode = isUnicodeString(message);
+        isUnicode ? data.unicode = true : null 
+        try {
+            let result =  await SVSAPI.get(
+                `${baseUrl}/api/pushsms.php`,
+                {
+                    params:data
+                }
+            )
+            console.log(result)
+            return result.data
+        } catch (error) {
+            return error       
+        }
+    }
 }
+module.exports = SVS;
 
-function validateMessage(message){
-
-    if (message == null || message == "") {
-        throw new Error("MSG91 : message is not provided.");
-    }
-
-    return message;
-}
-
-function modifyCallbackIfNull(callback){
-    return callback || function(){};
-}
-
-function isUnicodeString(str) {
-    for (var i = 0, n = str.length; i < n; i++) {
-        if (str.charCodeAt( i ) > 255) { return true; }
-    }
-    return false;
-}
-
-function makeHttpRequest(options, postData, callback) {
-
-    var http = require("http");
-    var data = "";
-    var req = http.request(options, function (res) {
-        res.setEncoding('utf8');
-        res.on('data', function (chunk) {
-            data += chunk;
-        });
-        res.on('end', function () {
-            callback(null, data);
-        })
-    });
-
-    req.on('error', function (e) {
-        callback(e);
-    });
-
-    if(postData!=null){
-        req.write(postData);
-    }
-
-    req.end();
-
-}
